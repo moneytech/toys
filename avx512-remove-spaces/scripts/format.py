@@ -14,30 +14,28 @@ def main():
 
 def format_table(data):
     table = Table()
-    table.add_header(["number of spaces",
-                      ("scalar [cycles/byte]", 3),
-                      ("AVX512VBMI [cycles/byte]", 3),
-                      "speedup (avg)"])
-    table.add_header(["",
-                      "avg (min)", "avg (max)", "best",
-                      "avg (min)", "avg (max)", "best",
-                      ""])
-    
+    keys  = data[1].keys()
+
+    # prepare header
+    header1 = ["number of spaces"]
+    header2 = [""]
+    for key in keys:
+        header1.append(("%s [cycles/byte]" % key, 3))
+        header2.extend(["avg (min)", "avg (max)", "best"])
+
+    table.add_header(header1)
+    table.add_header(header2)
+
+    # add data
     for cardinality in xrange(1, 64+1):
-        scalar, avx512 = data[cardinality]
+        row = ['%d' % cardinality]
+        measurements = data[cardinality]
+        for meas in measurements.values():
+            row.append('%0.3f' % min(meas.values))
+            row.append('%0.3f' % max(meas.values))
+            row.append('%0.3f' % meas.best)
 
-        speedup = scalar.get_avg() / avx512.get_avg()
-
-        table.add_row([
-            '%d' % cardinality,
-            '%0.3f' % min(scalar.values),
-            '%0.3f' % max(scalar.values),
-            '%0.3f' % scalar.best,
-            '%0.3f' % min(avx512.values),
-            '%0.3f' % max(avx512.values),
-            '%0.3f' % avx512.best,
-            '%0.2f' % speedup
-        ])
+        table.add_row(row)
 
     return table
 

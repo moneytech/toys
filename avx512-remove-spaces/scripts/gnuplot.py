@@ -10,50 +10,67 @@ def main():
 
     with open(input_path) as f:
         data = load(f)
+        keys = sorted(data[1].keys())
 
     with open(data_path, 'wt') as f:
         gnuplot_data(f, data)
 
     with open(gnuplot_path, 'wt') as f:
-        gnuplot_script(f, data_path, png_path, cpu_name)
+        gnuplot_script(f, keys, data_path, png_path, cpu_name)
 
 
 def gnuplot_data(f, data):
     for cardinality in xrange(1, 64+1):
-        scalar, avx512 = data[cardinality]
+        measurements = data[cardinality]
 
-        scalar_min  = min(scalar.values)
-        scalar_max  = max(scalar.values)
-        scalar_avg  = (scalar_min + scalar_max) / 2
-        scalar_best = scalar.best
+        f.write('%d' % cardinality)
+        for k in sorted(measurements):
+            meas = measurements[k]
+            for cycles in [meas.get_avg(), min(meas.values), max(meas.values), meas.best]:
+                f.write(' %0.3f' % cycles)
 
-        avx512_min  = min(avx512.values)
-        avx512_max  = max(avx512.values)
-        avx512_avg  = (avx512_min + avx512_max) / 2
-        avx512_best = avx512.best
-
-        f.write('%d %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f\n' % (
-            cardinality,
-            scalar_best,
-            scalar_avg,
-            scalar_min,
-            scalar_max,
-            avx512_best,
-            avx512_avg,
-            avx512_min,
-            avx512_max,
-        ))
+        f.write('\n')
 
 
-def gnuplot_script(file, data_path, png_path, cpu_name):
-    data = {
-        'data': data_path,
-        'png' : png_path,
-        'cpu' : cpu_name,
+def gnuplot_generate_plots(keys, data_path):
+    result = []
+    for index, key in enumerate(keys):
+        title = key
+        param = {
+            'data'   : data_path,
+            'column' : 4*index + 5,
+            'title'  : title + " (best)",
+        }
+
+        #result.append(GNUPLOT_BEST_PLOT % param)
+
+        param = {
+            'data'   : data_path,
+            'shift'  : index,
+            'avg'    : 4*index + 2,
+            'min'    : 4*index + 3,
+            'max'    : 4*index + 4,
+            'title'  : title,
+        }
+
+        result.append(GNUPLOT_AVG_PLOT % param)
+
+    return result
+
+
+def gnuplot_script(file, keys, data_path, png_path, cpu_name):
+    param = {
+        'plots' : ', '.join(gnuplot_generate_plots(keys, data_path)),
+        'data'  : data_path,
+        'png'   : png_path,
+        'cpu'   : cpu_name,
     }
 
-    file.write(GNUPLOT % data)
+    file.write(GNUPLOT % param)
 
+
+GNUPLOT_BEST_PLOT='"%(data)s" using 1:%(column)d with lines title "%(title)s" noenhanced'
+GNUPLOT_AVG_PLOT='"%(data)s" using ($1+0.%(shift)d):%(avg)d:%(min)d:%(max)d with yerrorbars title "%(title)s" noenhanced'
 
 GNUPLOT="""
 set terminal png size 800,600
@@ -61,16 +78,13 @@ set output "%(png)s"
 
 set title "Microbenchmark on %(cpu)s"
 set xlabel "number of whitespaces in a 64 byte block"
-set ylabel "CPU cycles/input byte"
+set ylabel "CPU cycles/input byte (best)"
 set yrange [0:]
 set xrange [0:64]
-set xtics 4 
+set xtics 4
 set key left
 
-plot "%(data)s" using 1:3:4:5         with yerrorbars title "scalar"     ls 1 lc "magenta", \
-     "%(data)s" using ($1+0.3):7:8:9  with yerrorbars title "AVX512VBMI" ls 1 lc "blue", \
-     "%(data)s" using 1:2 with lines title "scalar (best)", \
-     "%(data)s" using 1:6 with lines title "AVX512VBMI (best)"
+plot %(plots)s
 """
 
 if __name__ == '__main__':

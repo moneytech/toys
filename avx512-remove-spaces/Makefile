@@ -1,8 +1,8 @@
 .SUFFIXES:
 
-FLAGS=$(CXXFLAGS) -mavx512vbmi -Wall -Wextra -pedantic -std=c++11
+FLAGS=$(CXXFLAGS) -mavx512vbmi -mbmi2 -Wall -Wextra -pedantic -std=c++11 -Wno-implicit-fallthrough -Wno-overflow
 
-DEPS=all.cpp scalar.cpp avx512vbmi.cpp application_base.cpp
+DEPS=all.cpp scalar.cpp avx512vbmi*.cpp aqrit.cpp application_base.cpp
 
 ALL=unittest test benchmark speed
 
@@ -32,11 +32,19 @@ run_test: test tom-sawyer.txt
 	@cmp scalar.out avx512.out
 
 # Cannon Lake plot
-cnl.data cnl.gnuplot: scripts/gnuplot.py results/cnl.txt
+cnl.data cnl.gnuplot: scripts/gnuplot.py scripts/parse.py results/cnl.txt
 	python scripts/gnuplot.py results/cnl.txt cnl.data cnl.gnuplot cnl.png "Cannon Lake"
 
 cnl.png: cnl.data cnl.gnuplot
 	gnuplot cnl.gnuplot
+
+cnl.rst: scripts/format.py scripts/parse.py results/cnl.txt
+	python scripts/format.py results/cnl.txt > /tmp/cnl.rst
+	mv /tmp/cnl.rst $@
+
+cnl-speed.rst: scripts/format_speed.py scripts/parse_speed.py results/cnl-speed.txt
+	python scripts/format_speed.py results/cnl-speed.txt > /tmp/cnl-speed.rst
+	mv /tmp/cnl-speed.rst $@
 
 clean:
 	$(RM) $(ALL)

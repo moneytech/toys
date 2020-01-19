@@ -1,0 +1,4 @@
+*.o
+*.rst
+benchmark_*
+unittests_*

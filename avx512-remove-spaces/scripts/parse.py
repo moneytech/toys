@@ -1,3 +1,6 @@
+from collections import OrderedDict
+from procedure_names import display_name
+
 class Measurements(object):
     def __init__(self):
         self.values = []
@@ -26,29 +29,35 @@ class Measurements(object):
 def load(file):
     data = {}
     for c in xrange(0, 64 + 1):
-        data[c] = (Measurements(), Measurements())
+        data[c] = OrderedDict()
 
     cardinality = None
     for line in file:
         if line.startswith('rdtsc_overhead'):
             continue
 
-        F = line.replace('=', ' ').replace(',', ' ').split()
-        if F[0] == 'cardinality':
+        F = line.split(':')
+
+        if len(F) == 1:
+            F = line.replace('=', ' ').replace(',', ' ').split()
+            assert F[0] == 'cardinality'
             cardinality = int(F[1])
             continue
 
         assert cardinality is not None
-        if F[0] == 'scalar':
-            meas = data[cardinality][0]
-        elif F[0] == 'AVX512VBMI':
-            meas = data[cardinality][1]
-        else:
-            assert False
+        name = display_name[F[0].strip()]
+        if name is None:
+            continue
 
-        best = float(F[2])
-        avg  = float(F[5])
+        F = F[1].split()
 
+        if name not in data[cardinality]:
+            data[cardinality][name] = Measurements()
+
+        best = float(F[0])
+        avg  = float(F[3])
+
+        meas = data[cardinality][name]
         meas.set_best(best)
         meas.add_value(avg)
 
